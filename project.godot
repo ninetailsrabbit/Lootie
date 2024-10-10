@@ -10,7 +10,9 @@ config_version=5
 
 [application]
 
-config/name="godot-plugin-template"
+config/name="Lootie"
+config/description="Portable loot table for Godot class that facilitates generating random loot based on specified items and their associated probabilities."
+config/version="1.0.0"
 config/features=PackedStringArray("4.3", "GL Compatibility")
 config/icon="res://icon.svg"
 
