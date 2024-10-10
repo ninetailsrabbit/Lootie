@@ -3,7 +3,11 @@ class_name LootTableData extends Resource
 enum ProbabilityMode {
 	Weight, ## The type of probability technique to apply on a loot, weight is the common case and generate random decimals while each time sum the weight of the next item
 	RollTier, ##  The roll tier uses a max roll number and define a number range for each tier.
-	PercentageProbability ## A standard chance based on percentages
+	PercentageProbability, ## A standard chance based on percentages,
+	WeightRollTierCombined, ## The item needs to overcome a weight and roll tier to be looted
+	WeightPercentageCombined, ## The item needs to overcome a weight and percentage roll to be looted
+	RollTierPercentageCombined, ## The item needs to overcome a roll tier and percentage roll to be looted
+	WeightPercentageRollTierCombined ## The items needs to overcome all the probability modes to be looted
 }
 
 ## The available items that will be used on a roll for this loot table
@@ -80,21 +84,24 @@ func _init(items: Array[Variant] = []) -> void:
 			_create_from_dictionary(items)
 		elif items.front() is LootItem:
 			available_items.append_array(items)
-	
+
+
+func items_with_weight_available(items: Array[LootItem] = available_items) -> Array[LootItem]:
+	return items.filter(func(item: LootItem): return item.can_use_weight())
+
 
 func items_with_rarity_available(items: Array[LootItem] = available_items) -> Array[LootItem]:
-	return items.filter(func(item: LootItem): return item.rarity is LootItemRarity)
+	return items.filter(func(item: LootItem): return item.can_use_rarity())
 
 
 func items_with_valid_chance(items: Array[LootItem] = available_items) -> Array[LootItem]:
-	return items.filter(func(item: LootItem): return item.chance > 0)
+	return items.filter(func(item: LootItem): return item.can_use_chance())
 
 
 func max_current_rarity_roll() -> float:
 	var max_available_roll = items_with_rarity_available(available_items)\
 		.map(func(item: LootItem): return item.rarity.max_roll).max()
 	
-
 	if max_available_roll:
 		return max_available_roll
 		

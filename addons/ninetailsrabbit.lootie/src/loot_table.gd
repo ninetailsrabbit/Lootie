@@ -98,14 +98,13 @@ func roll_items_by_weight() -> Array[LootItem]:
 		
 func roll_items_by_tier(selected_min_roll_tier: float = loot_table_data.min_roll_tier, selected_max_roll_tier: float = loot_table_data.max_roll_tier) -> Array[LootItem]:
 	var items_rolled: Array[LootItem] = []
-	var item_rarity_roll = randf_range(
-		selected_min_roll_tier, 
-		clampf(selected_max_roll_tier, 0, loot_table_data.max_current_rarity_roll()) if loot_table_data.limit_max_roll_tier_to_maximum_from_available_items else selected_max_roll_tier
-		)
+
 	
 	var current_roll_items = loot_table_data.items_with_rarity_available(mirrored_items).filter(
 		func(item: LootItem):
-			return PluginUtilities.decimal_value_is_between(snappedf(item_rarity_roll, 0.01), item.rarity.min_roll, item.rarity.max_roll)
+			return item.rarity.roll(
+				selected_min_roll_tier, 
+				clampf(selected_max_roll_tier, 0, loot_table_data.max_current_rarity_roll()) if loot_table_data.limit_max_roll_tier_to_maximum_from_available_items else selected_max_roll_tier)
 			)
 	
 	
@@ -135,7 +134,7 @@ func roll_items_by_percentage() -> Array[LootItem]:
 	var items_rolled: Array[LootItem] = []
 	var chance_result: float = rng.randf_range(0.0, 1.0)
 	
-	var current_roll_items = loot_table_data.items_with_valid_chance().filter(func(item: LootItem): PluginUtilities.chance(rng, item.chance))
+	var current_roll_items = loot_table_data.items_with_valid_chance().filter(func(item: LootItem): item.chance.roll(rng))
 	current_roll_items.shuffle()
 	
 	items_rolled.append_array(current_roll_items)
@@ -199,7 +198,7 @@ func _prepare_weight_on_items(target_items: Array[LootItem] = mirrored_items) ->
 	
 	for item: LootItem in target_items:
 		item.reset_accum_weight()
-		total_weight += item.weight
+		total_weight += item.weight.value
 		item.accum_weight = total_weight
 	
 	return total_weight + loot_table_data.extra_weight_bias

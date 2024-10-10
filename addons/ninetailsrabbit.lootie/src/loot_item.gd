@@ -13,19 +13,24 @@ class_name LootItem extends Resource
 @export var abbreviation : String
 ## A description more detailed about this item
 @export_multiline var description : String
-## The weight value for this items to appear in a loot, the more the weight, more the chance to be looted
-@export var weight: float = 1.0
+## The weight parameters for this item
+@export var weight: LootItemWeight
 ## The grade of rarity for this item
 @export var rarity: LootItemRarity
-## Set to zero to disable it. Chance in percentage to appear in a loot from 0 to 1.0, where 0.05 means 5% and 1.0 means 100%
-@export_range(0.0, 1.0, 0.001) var chance: float = 0.0
+## The chance percentage for this item
+@export var chance: LootItemChance
 
 
-var accum_weight: float = 0.0
+func can_use_weight() -> bool:
+	return is_instance_valid(weight) and weight.value > 0
 
 
-func reset_accum_weight() -> void:
-	accum_weight = 0.0
+func can_use_rarity() -> bool:
+	return is_instance_valid(rarity)
+
+
+func can_use_chance() -> bool:
+	return is_instance_valid(chance) and chance.value
 
 
 static func create_from(data: Dictionary = {}) -> LootItem:
