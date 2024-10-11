@@ -17,4 +17,4 @@ func roll(rng: RandomNumberGenerator, total_weight: float) -> bool:
 
 
 func roll_overcome(result: float) -> bool:
-	return result <= accum_weight
+	return result < accum_weight
