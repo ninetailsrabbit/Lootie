@@ -19,7 +19,7 @@ func generate(times: int = 1) -> Array[LootItem]:
 	mirrored_items = loot_table_data.available_items.duplicate() if mirrored_items.is_empty() else mirrored_items
 	
 	var items_looted: Array[LootItem] = []
-	var max_picks: int = min(loot_table_data.items_limit_per_loot, mirrored_items.size())
+	var max_picks: int = loot_table_data.items_limit_per_loot
 	var size_that_does_not_count_on_loot_limit: int = 0
 
 	times = max(1, abs(times))
@@ -30,7 +30,7 @@ func generate(times: int = 1) -> Array[LootItem]:
 		## Append always the items that always should drop from this loot table
 		items_looted.append_array(mirrored_items.filter(func(item: LootItem): return item.should_drop_always))
 		
-		if loot_table_data.always_drop_items_count_on_limit and items_looted.size() >= max_picks:
+		if max_picks > 0 and loot_table_data.always_drop_items_count_on_limit and items_looted.size() >= max_picks:
 			return items_looted.slice(0, max_picks)
 			
 		size_that_does_not_count_on_loot_limit += items_looted.size()
@@ -38,11 +38,14 @@ func generate(times: int = 1) -> Array[LootItem]:
 		for i in times:
 			items_looted.append_array(_generate_loot_by_mode())
 			
+			for item: LootItem in items_looted.filter(func(item: LootItem): return item.is_unique):
+				mirrored_items.erase(item)
+				
 			if not loot_table_data.allow_duplicates:
 				items_looted.assign(PluginUtilities.remove_duplicates(items_looted))
 		
 	
-	return items_looted.slice(0, max_picks + size_that_does_not_count_on_loot_limit)
+	return PluginUtilities.pick_random_values(items_looted, max_picks + size_that_does_not_count_on_loot_limit) if max_picks > 0 else items_looted
 
 
 func roll_items_by_weight() -> Array[LootItem]:
@@ -76,7 +79,7 @@ func roll_items_by_tier(selected_min_roll_tier: float = loot_table_data.min_roll
 	
 	else:
 		var roll_result: float = rng.randf_range(selected_min_roll_tier, selected_max_roll_tier)
-		
+
 		items_rolled.append_array(valid_items.filter(func(item: LootItem): return item.rarity.roll_overcome(roll_result)))
 	
 	return items_rolled
@@ -184,11 +187,11 @@ func _prepare_weight_on_items(target_items: Array[LootItem] = mirrored_items) ->
 	var total_weight: float = 0.0
 	
 	for item: LootItem in target_items:
-		item.reset_accum_weight()
+		item.weight.reset_accum_weight()
 		total_weight += item.weight.value
-		item.accum_weight = total_weight
+		item.weight.accum_weight = total_weight
 	
-	return total_weight + loot_table_data.extra_weight_bias
+	return total_weight
 
 		
 func _prepare_random_number_generator() -> void:

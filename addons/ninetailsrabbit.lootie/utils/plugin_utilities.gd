@@ -138,9 +138,7 @@ static func intersected_elements(a: Array[Variant], b: Array[Variant]) -> Array[
 		return a.filter(func(element): return element in b)
 		
 	return []
-	
 
-	
 
 static func remove_duplicates(array: Array[Variant]) -> Array[Variant]:
 	var cleaned_array := []

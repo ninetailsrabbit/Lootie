@@ -18,7 +18,7 @@ class_name LootItem extends Resource
 ## When enabled the item is eligible on loot generations
 @export var is_enabled: bool = true
 ## The item is removed from the loot table when looted
-@export var is_unique: bool = true
+@export var is_unique: bool = false
 ## The weight parameters for this item
 @export var weight: LootItemWeight
 ## The grade of rarity for this item

@@ -18,7 +18,7 @@ enum ProbabilityMode {
 @export var roll_per_item: bool = false
 ## When this is enabled items can be repeated for multiple rolls on this generation
 @export var allow_duplicates: bool = false
-## Max items that this loot table can generate
+## Max items that this loot table can generate. Set to 0 to disable it and does not apply a limit in the loot generation
 @export var items_limit_per_loot: int = 3
 ## When this is enabled, the always drop items count on the loot limit for this table.
 @export var always_drop_items_count_on_limit: bool = false
