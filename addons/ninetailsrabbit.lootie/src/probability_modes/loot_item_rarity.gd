@@ -10,10 +10,14 @@ enum ItemRarity { COMMON, UNCOMMON, RARE, EPIC, LEGENDARY, MYTHIC, ETERNAL, ABYS
 @export var max_roll: float
 
 
-func roll(selected_min_roll_tier: float, selected_max_roll_tier: float) -> bool:
-	var item_rarity_roll = randf_range(selected_min_roll_tier, selected_max_roll_tier)
+func roll(rng: RandomNumberGenerator, selected_min_roll_tier: float, selected_max_roll_tier: float) -> bool:
+	var rarity_roll_result = rng.randf_range(selected_min_roll_tier, selected_max_roll_tier)
 	
-	return decimal_value_is_between(snappedf(item_rarity_roll, 0.01), min_roll, max_roll)
+	return roll_overcome(rarity_roll_result)
+
+
+func roll_overcome(result: float) -> bool:
+	return decimal_value_is_between(snappedf(result, 0.01), min_roll, max_roll)
 
 
 func decimal_value_is_between(number: float, min_value: float, max_value: float, inclusive: = true, precision: float = 0.00001) -> bool:

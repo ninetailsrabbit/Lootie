@@ -8,6 +8,10 @@ class_name LootItemChance extends Resource
 
 
 func roll(rng: RandomNumberGenerator, less_than: bool = true) -> bool:
-	var probability_chance: float = clamp(value, 0.0, 1.0)
+	var item_probability_chance_result: float = rng.randf()
 	
-	return rng.randf() < probability_chance if less_than else rng.randf() > probability_chance
+	return roll_overcome(item_probability_chance_result, less_than)
+
+
+func roll_overcome(result: float, less_than: bool = true) -> bool:
+	return result < value if less_than else result > value

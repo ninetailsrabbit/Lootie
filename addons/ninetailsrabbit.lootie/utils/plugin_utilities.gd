@@ -123,6 +123,25 @@ static func remove_files_recursive(path: String, regex: RegEx = null) -> void:
 		push_error("PluginUtilities->remove_recursive: An error %s happened open directory: %s " % [DirAccess.get_open_error(), path])
 
 
+## To detect if a contains elements of b
+static func intersects(a: Array[Variant], b: Array[Variant]) -> bool:
+	for e: Variant in a:
+		if b.has(e):
+			return true
+			
+	return false
+	
+	
+## To detect if a contains elements of b
+static func intersected_elements(a: Array[Variant], b: Array[Variant]) -> Array[Variant]:
+	if intersects(a, b):
+		return a.filter(func(element): return element in b)
+		
+	return []
+	
+
+	
+
 static func remove_duplicates(array: Array[Variant]) -> Array[Variant]:
 	var cleaned_array := []
 	

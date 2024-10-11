@@ -14,56 +14,35 @@ func _ready() -> void:
 	
 	_prepare_random_number_generator()
 
-		
-func roll(times: int = loot_table_data.default_roll_times_each_generation, except: Array[LootItem] = []) -> Array[LootItem]:
-	var items_rolled: Array[LootItem] = []
+
+func generate(times: int = 1) -> Array[LootItem]:
+	mirrored_items = loot_table_data.available_items.duplicate() if mirrored_items.is_empty() else mirrored_items
+	
+	var items_looted: Array[LootItem] = []
 	var max_picks: int = min(loot_table_data.items_limit_per_loot, mirrored_items.size())
+	var size_that_does_not_count_on_loot_limit: int = 0
+
 	times = max(1, abs(times))
 	
-	for exception_items: LootItem in except:
-		mirrored_items.erase(exception_items)
-	
-	if mirrored_items.size() > 0:
-		match loot_table_data.probability_type:
-			LootTableData.ProbabilityMode.Weight:
-				for i in range(times):
-					items_rolled.append_array(roll_items_by_weight())
-
-					if items_rolled.size() >= max_picks:
-						break
-					
-				if loot_table_data.fixed_items_per_loot > 0:
-					while items_rolled.size() < loot_table_data.fixed_items_per_loot and mirrored_items.size() >= (loot_table_data.fixed_items_per_loot - items_rolled.size()):
-						items_rolled.append_array(roll_items_by_weight())
-			
-			LootTableData.ProbabilityMode.RollTier:
-				for i in range(times):
-					items_rolled.append_array(roll_items_by_tier())
-				
-					if items_rolled.size() >= max_picks:
-							break
-					
-				if loot_table_data.fixed_items_per_loot > 0 and loot_table_data.items_with_rarity_available().size() >= loot_table_data.fixed_items_per_loot:
-					while items_rolled.size() < loot_table_data.fixed_items_per_loot and (not mirrored_items.is_empty() or mirrored_items.size() >= loot_table_data.fixed_items_per_loot):
-						items_rolled.append_array(roll_items_by_tier())
-			
-			LootTableData.ProbabilityMode.PercentageProbability:
-				for i in range(times):
-					items_rolled.append_array(roll_items_by_percentage())
-				
-					if items_rolled.size() >= max_picks:
-							break
-					
-				if loot_table_data.fixed_items_per_loot > 0 and loot_table_data.items_with_valid_chance().size() >= loot_table_data.fixed_items_per_loot:
-					while items_rolled.size() < loot_table_data.fixed_items_per_loot and (not mirrored_items.is_empty() or mirrored_items.size() >= loot_table_data.fixed_items_per_loot):
-						items_rolled.append_array(roll_items_by_percentage())
-			
-	## Reset the mirrored items after the multiple shuffles or erased items
-		mirrored_items = loot_table_data.available_items.duplicate()
+	if not mirrored_items.is_empty():
+		## Filter only items that are enabled for loot
+		mirrored_items = mirrored_items.filter(func(item: LootItem): return item.is_enabled)
+		## Append always the items that always should drop from this loot table
+		items_looted.append_array(mirrored_items.filter(func(item: LootItem): return item.should_drop_always))
 		
-		items_rolled.shuffle()
+		if loot_table_data.always_drop_items_count_on_limit and items_looted.size() >= max_picks:
+			return items_looted.slice(0, max_picks)
+			
+		size_that_does_not_count_on_loot_limit += items_looted.size()
+		
+		for i in times:
+			items_looted.append_array(_generate_loot_by_mode())
+			
+			if not loot_table_data.allow_duplicates:
+				items_looted.assign(PluginUtilities.remove_duplicates(items_looted))
+		
 	
-	return items_rolled.slice(0, max_picks)
+	return items_looted.slice(0, max_picks + size_that_does_not_count_on_loot_limit)
 
 
 func roll_items_by_weight() -> Array[LootItem]:
@@ -71,91 +50,54 @@ func roll_items_by_weight() -> Array[LootItem]:
 	var total_weight: float = 0.0
 
 	total_weight = _prepare_weight_on_items(mirrored_items)
-	mirrored_items.shuffle()
+	var valid_items: Array[LootItem] = loot_table_data.items_with_weight_available(mirrored_items)
+	valid_items.shuffle()
 	
-	var roll_result: float = snappedf(rng.randf_range(0, total_weight), 0.01)
-	
-	for looted_item: LootItem in mirrored_items.filter(func(item: LootItem): return roll_result <= item.accum_weight):
-		items_rolled.append(looted_item.duplicate())
-		
-	if loot_table_data.choose_all_possible_candidates_each_roll_weight:
-		if not loot_table_data.allow_duplicates:
-			for looted_item: LootItem in items_rolled:
-				mirrored_items.erase(looted_item)
-			
-		return items_rolled
+	if loot_table_data.roll_per_item:
+		items_rolled.append_array(valid_items.filter(func(item: LootItem): return item.weight.roll(rng, total_weight)))
 	else:
-		## The assign method allow to keep the types of the original array so we avoid the type error on return
-		var result: Array[LootItem] = []
-		result.assign(PluginUtilities.pick_random_values(items_rolled, loot_table_data.number_of_items_that_can_be_selected_per_roll_weight))
+		var roll_result: float = snappedf(rng.randf_range(0, total_weight), 0.01)
 		
-		if not loot_table_data.allow_duplicates:
-			for looted_item: LootItem in result:
-				mirrored_items.erase(looted_item)
-				
-		return result
+		items_rolled.append_array(valid_items.filter(func(item: LootItem): return item.weight.roll_overcome(roll_result)))
+
+	return items_rolled
 		
 		
 func roll_items_by_tier(selected_min_roll_tier: float = loot_table_data.min_roll_tier, selected_max_roll_tier: float = loot_table_data.max_roll_tier) -> Array[LootItem]:
 	var items_rolled: Array[LootItem] = []
 
+	var valid_items: Array[LootItem] = loot_table_data.items_with_rarity_available(mirrored_items)
+	valid_items.shuffle()
 	
-	var current_roll_items = loot_table_data.items_with_rarity_available(mirrored_items).filter(
-		func(item: LootItem):
-			return item.rarity.roll(
-				selected_min_roll_tier, 
-				clampf(selected_max_roll_tier, 0, loot_table_data.max_current_rarity_roll()) if loot_table_data.limit_max_roll_tier_to_maximum_from_available_items else selected_max_roll_tier)
-			)
-	
-	
-	current_roll_items.shuffle()
-	
-	items_rolled.append_array(current_roll_items)
+	selected_max_roll_tier = clampf(selected_max_roll_tier, 0, loot_table_data.max_current_rarity_roll()) if loot_table_data.limit_max_roll_tier_from_available_items else selected_max_roll_tier
 
-	if loot_table_data.choose_all_possible_candidates_each_roll_tier:
-		if not loot_table_data.allow_duplicates:
-			for looted_item: LootItem in items_rolled:
-				mirrored_items.erase(looted_item)
-			
-		return items_rolled
+	if loot_table_data.roll_per_item:
+		items_rolled.append_array(valid_items.filter(func(item: LootItem): return item.rarity.roll(rng, selected_min_roll_tier, selected_max_roll_tier)))
+	
 	else:
-		## The assign method allow to keep the types of the original array so we avoid the type error on return
-		var result: Array[LootItem] = []
-		result.assign(PluginUtilities.pick_random_values(items_rolled, loot_table_data.number_of_items_that_can_be_selected_per_roll_tier))
+		var roll_result: float = rng.randf_range(selected_min_roll_tier, selected_max_roll_tier)
 		
-		if not loot_table_data.allow_duplicates:
-			for looted_item: LootItem in result:
-				mirrored_items.erase(looted_item)
-				
-		return result
+		items_rolled.append_array(valid_items.filter(func(item: LootItem): return item.rarity.roll_overcome(roll_result)))
+	
+	return items_rolled
+		
 
 
 func roll_items_by_percentage() -> Array[LootItem]:
 	var items_rolled: Array[LootItem] = []
-	var chance_result: float = rng.randf_range(0.0, 1.0)
+
+	var valid_items: Array[LootItem] = loot_table_data.items_with_valid_chance(mirrored_items)
+	valid_items.shuffle()
 	
-	var current_roll_items = loot_table_data.items_with_valid_chance().filter(func(item: LootItem): item.chance.roll(rng))
-	current_roll_items.shuffle()
-	
-	items_rolled.append_array(current_roll_items)
-	
-	if loot_table_data.choose_all_possible_candidates_each_chance:
-		if not loot_table_data.allow_duplicates:
-			for looted_item: LootItem in items_rolled:
-				mirrored_items.erase(looted_item)
-			
-		return items_rolled
+	if loot_table_data.roll_per_item:
+		items_rolled.append_array(valid_items.filter(func(item: LootItem): return item.chance.roll(rng)))
 	
 	else:
-		## The assign method allow to keep the types of the original array so we avoid the type error on return
-		var result: Array[LootItem] = []
-		result.assign(PluginUtilities.pick_random_values(items_rolled, loot_table_data.number_of_items_that_can_be_selected_per_chance))
+		var roll_result: float = rng.randf()
 		
-		if not loot_table_data.allow_duplicates:
-			for looted_item: LootItem in result:
-				mirrored_items.erase(looted_item)
-				
-		return result
+		items_rolled.append_array(valid_items.filter(func(item: LootItem): return item.chance.roll_overcome(roll_result)))
+	
+	return items_rolled
 
 
 func change_probability_type(new_type: LootTableData.ProbabilityMode) -> void:
@@ -193,6 +135,51 @@ func remove_item_by_id(item_id: StringName) -> void:
 	mirrored_items = loot_table_data.available_items.duplicate()
 
 
+func _generate_loot_by_mode(mode: LootTableData.ProbabilityMode = loot_table_data.probability_mode) -> Array[LootItem]:
+	var items_looted: Array[LootItem] = []
+	
+	match loot_table_data.probability_mode:
+			loot_table_data.ProbabilityMode.Weight:
+				items_looted.append_array(roll_items_by_weight())
+				
+			loot_table_data.ProbabilityMode.RollTier:
+				items_looted.append_array(roll_items_by_tier())
+				
+			loot_table_data.ProbabilityMode.PercentageProbability:
+				items_looted.append_array(roll_items_by_percentage())
+				
+			loot_table_data.ProbabilityMode.WeightRollTierCombined:
+				var weight_items_looted: Array[LootItem] = roll_items_by_weight()
+				var tier_items_looted: Array[LootItem] = roll_items_by_tier()
+			
+				items_looted.append_array(PluginUtilities.intersected_elements(weight_items_looted, tier_items_looted))
+			
+			loot_table_data.ProbabilityMode.WeightPercentageCombined:
+				var weight_items_looted: Array[LootItem] = roll_items_by_weight()
+				var percentage_items_looted: Array[LootItem] = roll_items_by_percentage()
+			
+				items_looted.append_array(PluginUtilities.intersected_elements(weight_items_looted, percentage_items_looted))
+			
+			loot_table_data.ProbabilityMode.RollTierPercentageCombined:
+				var tier_items_looted: Array[LootItem] = roll_items_by_tier()
+				var percentage_items_looted: Array[LootItem] = roll_items_by_percentage()
+			
+				items_looted.append_array(PluginUtilities.intersected_elements(tier_items_looted, percentage_items_looted))
+			
+			loot_table_data.ProbabilityMode.WeightPercentageRollTierCombined:
+				var weight_items_looted: Array[LootItem] = roll_items_by_weight()
+				var tier_items_looted: Array[LootItem] = roll_items_by_tier()
+				var percentage_items_looted: Array[LootItem] = roll_items_by_percentage()
+				
+				var weight_tier_intersects: bool = PluginUtilities.intersects(weight_items_looted, tier_items_looted)
+				var weight_percentage_intersects: bool = PluginUtilities.intersects(weight_items_looted, percentage_items_looted)
+				
+				if weight_tier_intersects and weight_percentage_intersects:
+					items_looted.append_array(PluginUtilities.intersected_elements(weight_items_looted, tier_items_looted))
+				
+	return items_looted
+	
+	
 func _prepare_weight_on_items(target_items: Array[LootItem] = mirrored_items) -> float:
 	var total_weight: float = 0.0
 	

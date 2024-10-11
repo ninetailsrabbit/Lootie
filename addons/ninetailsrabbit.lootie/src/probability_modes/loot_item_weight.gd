@@ -5,5 +5,16 @@ class_name LootItemWeight extends Resource
 
 var accum_weight: float = 0.0
 
+
 func reset_accum_weight() -> void:
 	accum_weight = 0.0
+
+
+func roll(rng: RandomNumberGenerator, total_weight: float) -> bool:
+	var weight_roll_result: float = snappedf(rng.randf_range(0, total_weight), 0.01)
+	
+	return roll_overcome(weight_roll_result)
+
+
+func roll_overcome(result: float) -> bool:
+	return result <= accum_weight
