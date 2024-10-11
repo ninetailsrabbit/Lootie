@@ -3,7 +3,7 @@ class_name LootieTable extends Node
 
 @export var loot_table_data: LootTableData
 
-
+var unique_items_dropped: Array[LootItem] = []
 var mirrored_items: Array[LootItem] = []
 var rng: RandomNumberGenerator = RandomNumberGenerator.new()
 
@@ -31,6 +31,7 @@ func generate(times: int = 1) -> Array[LootItem]:
 		items_looted.append_array(mirrored_items.filter(func(item: LootItem): return item.should_drop_always))
 		
 		if max_picks > 0 and loot_table_data.always_drop_items_count_on_limit and items_looted.size() >= max_picks:
+			remove_unique_items(items_looted)
 			return items_looted.slice(0, max_picks)
 			
 		size_that_does_not_count_on_loot_limit += items_looted.size()
@@ -38,20 +39,27 @@ func generate(times: int = 1) -> Array[LootItem]:
 		for i in times:
 			items_looted.append_array(_generate_loot_by_mode())
 			
-			for item: LootItem in items_looted.filter(func(item: LootItem): return item.is_unique):
-				mirrored_items.erase(item)
+			remove_unique_items(items_looted)
 				
 			if not loot_table_data.allow_duplicates:
 				items_looted.assign(PluginUtilities.remove_duplicates(items_looted))
 		
+	mirrored_items.clear()
 	
 	return PluginUtilities.pick_random_values(items_looted, max_picks + size_that_does_not_count_on_loot_limit) if max_picks > 0 else items_looted
+
+## Remove the items that are unique and can be only dropped once from this loot table
+func remove_unique_items(items: Array[LootItem]) -> void:
+	for item: LootItem in items.filter(func(item: LootItem): return item.is_unique and not item in unique_items_dropped):
+		mirrored_items.erase(item)
+		loot_table_data.available_items.erase(item)
+		unique_items_dropped.append(item)
 
 
 func roll_items_by_weight() -> Array[LootItem]:
 	var items_rolled: Array[LootItem] = []
 	var total_weight: float = 0.0
-
+	
 	total_weight = _prepare_weight_on_items(mirrored_items)
 	var valid_items: Array[LootItem] = loot_table_data.items_with_weight_available(mirrored_items)
 	valid_items.shuffle()
@@ -154,7 +162,7 @@ func _generate_loot_by_mode(mode: LootTableData.ProbabilityMode = loot_table_dat
 			loot_table_data.ProbabilityMode.WeightRollTierCombined:
 				var weight_items_looted: Array[LootItem] = roll_items_by_weight()
 				var tier_items_looted: Array[LootItem] = roll_items_by_tier()
-			
+				
 				items_looted.append_array(PluginUtilities.intersected_elements(weight_items_looted, tier_items_looted))
 			
 			loot_table_data.ProbabilityMode.WeightPercentageCombined:
