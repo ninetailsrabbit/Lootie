@@ -30,11 +30,14 @@ func _exit_tree() -> void:
 		update_notify_tool_instance = null
 		
 	remove_autoload_singleton("LootieGlobal")
+	
 	remove_custom_type("LootTableData")
+	
 	remove_custom_type("LootItemRarity")
 	remove_custom_type("LootItemWeight")
 	remove_custom_type("LootItemChance")
 	remove_custom_type("LootItem")
+	
 	remove_custom_type("LootieTable")
 
 ## Update tool referenced from https://github.com/MikeSchulze/gdUnit4/blob/master/addons/gdUnit4

@@ -6,6 +6,10 @@ class_name LootItemWeight extends Resource
 var accum_weight: float = 0.0
 
 
+func _init(weight: float) -> void:
+	value = weight
+	
+
 func reset_accum_weight() -> void:
 	accum_weight = 0.0
 

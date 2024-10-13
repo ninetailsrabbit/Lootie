@@ -10,6 +10,12 @@ enum ItemRarity { COMMON, UNCOMMON, RARE, EPIC, LEGENDARY, MYTHIC, ETERNAL, ABYS
 @export var max_roll: float
 
 
+func _init(_rarity: ItemRarity, _min_roll: float, _max_roll: float) -> void:
+	rarity = _rarity
+	min_roll = _min_roll
+	max_roll = _max_roll
+
+
 func roll(rng: RandomNumberGenerator, selected_min_roll_tier: float, selected_max_roll_tier: float) -> bool:
 	var rarity_roll_result = rng.randf_range(selected_min_roll_tier, selected_max_roll_tier)
 	
