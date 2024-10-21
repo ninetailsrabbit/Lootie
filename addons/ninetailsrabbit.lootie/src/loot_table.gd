@@ -42,11 +42,11 @@ func generate(times: int = 1) -> Array[LootItem]:
 			remove_unique_items(items_looted)
 				
 			if not loot_table_data.allow_duplicates:
-				items_looted.assign(PluginUtilities.remove_duplicates(items_looted))
+				items_looted.assign(remove_duplicates(items_looted))
 		
 	mirrored_items.clear()
 	
-	return PluginUtilities.pick_random_values(items_looted, max_picks + size_that_does_not_count_on_loot_limit) if max_picks > 0 else items_looted
+	return pick_random_values(items_looted, max_picks + size_that_does_not_count_on_loot_limit) if max_picks > 0 else items_looted
 
 ## Remove the items that are unique and can be only dropped once from this loot table
 func remove_unique_items(items: Array[LootItem]) -> void:
@@ -163,30 +163,30 @@ func _generate_loot_by_mode(mode: LootTableData.ProbabilityMode = loot_table_dat
 				var weight_items_looted: Array[LootItem] = roll_items_by_weight()
 				var tier_items_looted: Array[LootItem] = roll_items_by_tier()
 				
-				items_looted.append_array(PluginUtilities.intersected_elements(weight_items_looted, tier_items_looted))
+				items_looted.append_array(intersected_elements(weight_items_looted, tier_items_looted))
 			
 			loot_table_data.ProbabilityMode.WeightPercentageCombined:
 				var weight_items_looted: Array[LootItem] = roll_items_by_weight()
 				var percentage_items_looted: Array[LootItem] = roll_items_by_percentage()
 			
-				items_looted.append_array(PluginUtilities.intersected_elements(weight_items_looted, percentage_items_looted))
+				items_looted.append_array(intersected_elements(weight_items_looted, percentage_items_looted))
 			
 			loot_table_data.ProbabilityMode.RollTierPercentageCombined:
 				var tier_items_looted: Array[LootItem] = roll_items_by_tier()
 				var percentage_items_looted: Array[LootItem] = roll_items_by_percentage()
 			
-				items_looted.append_array(PluginUtilities.intersected_elements(tier_items_looted, percentage_items_looted))
+				items_looted.append_array(intersected_elements(tier_items_looted, percentage_items_looted))
 			
 			loot_table_data.ProbabilityMode.WeightPercentageRollTierCombined:
 				var weight_items_looted: Array[LootItem] = roll_items_by_weight()
 				var tier_items_looted: Array[LootItem] = roll_items_by_tier()
 				var percentage_items_looted: Array[LootItem] = roll_items_by_percentage()
 				
-				var weight_tier_intersects: bool = PluginUtilities.intersects(weight_items_looted, tier_items_looted)
-				var weight_percentage_intersects: bool = PluginUtilities.intersects(weight_items_looted, percentage_items_looted)
+				var weight_tier_intersects: bool = intersects(weight_items_looted, tier_items_looted)
+				var weight_percentage_intersects: bool = intersects(weight_items_looted, percentage_items_looted)
 				
 				if weight_tier_intersects and weight_percentage_intersects:
-					items_looted.append_array(PluginUtilities.intersected_elements(weight_items_looted, tier_items_looted))
+					items_looted.append_array(intersected_elements(weight_items_looted, tier_items_looted))
 				
 	return items_looted
 	
@@ -208,3 +208,84 @@ func _prepare_random_number_generator() -> void:
 	elif not loot_table_data.seed_string.is_empty():
 		rng.seed = loot_table_data.seed_string.hash()
 		
+
+
+#region Utils
+## To detect if a contains elements of b
+func intersects(a: Array[Variant], b: Array[Variant]) -> bool:
+	for e: Variant in a:
+		if b.has(e):
+			return true
+			
+	return false
+	
+	
+## To detect if a contains elements of b
+func intersected_elements(a: Array[Variant], b: Array[Variant]) -> Array[Variant]:
+	if intersects(a, b):
+		return a.filter(func(element): return element in b)
+		
+	return []
+
+
+func remove_duplicates(array: Array[Variant]) -> Array[Variant]:
+	var cleaned_array := []
+	
+	for element in array:
+		if not cleaned_array.has(element):
+			cleaned_array.append(element)
+		
+	return cleaned_array
+	
+	
+## Flatten any array with n dimensions recursively
+func flatten(array: Array[Variant]):
+	var result := []
+	
+	for i in array.size():
+		if typeof(array[i]) >= TYPE_ARRAY:
+			result.append_array(flatten(array[i]))
+		else:
+			result.append(array[i])
+
+	return result
+
+
+func pick_random_values(array: Array[Variant], items_to_pick: int = 1, duplicates: bool = true) -> Array[Variant]:
+	var result := []
+	var target = flatten(array.duplicate())
+	target.shuffle()
+	
+	items_to_pick = min(target.size(), items_to_pick)
+	
+	for i in range(items_to_pick):
+		var item = target.pick_random()
+		result.append(item)
+
+		if not duplicates:
+			target.erase(item)
+		
+	return result
+		
+
+func value_is_between(number: int, min_value: int, max_value: int, inclusive: = true) -> bool:
+	if inclusive:
+		return number >= min(min_value, max_value) and number <= max(min_value, max_value)
+	else :
+		return number > min(min_value, max_value) and number < max(min_value, max_value)
+
+
+func decimal_value_is_between(number: float, min_value: float, max_value: float, inclusive: = true, precision: float = 0.00001) -> bool:
+	if inclusive:
+		min_value -= precision
+		max_value += precision
+
+	return number >= min(min_value, max_value) and number <= max(min_value, max_value)
+
+
+func chance(rng: RandomNumberGenerator, probability_chance: float = 0.5, less_than: bool = true) -> bool:
+	probability_chance = clamp(probability_chance, 0.0, 1.0)
+	
+	return rng.randf() < probability_chance if less_than else rng.randf() > probability_chance
+
+#endregion
