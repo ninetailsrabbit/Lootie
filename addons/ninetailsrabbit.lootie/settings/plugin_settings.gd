@@ -1,5 +1,5 @@
 @tool
-class_name MyPluginSettings extends RefCounted
+class_name LootiePluginSettings extends RefCounted
 
 const PluginPrefixName: String = "ninetailsrabbit.lootie" ## The folder name
 const GitRepositoryName: String = "lootie"
